@@ -19,14 +19,19 @@ func Home(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
-func main() {
 
-	reload.Reload(8080)
+func main() {
+	const reloadPort = 8080                 // port that the reload server listens on
+	const reloadUrl = "/reload"             // url that the reload server listens on
+	const origin =  "http://localhost:8001" // used for origin check in websocket upgrade
+	const serverPort = ":8001"					// local server port
+
+	reload.Reload(reloadUrl,reloadPort, origin)
 
 	http.HandleFunc("/", Home)
 
-	fmt.Printf("Server Listening at http://localhost:8001\n")
-	err := http.ListenAndServe(":8001", nil)
+	fmt.Printf("Server Listening on port %s\n", serverPort)
+	err := http.ListenAndServe(serverPort, nil)
 	if err != nil {
 		panic(err)
 	}

@@ -13,15 +13,12 @@ var upgrader = websocket.Upgrader{
     WriteBufferSize: 1024,
 }
 
-
-
-
-func server(port int, origin string) {
+func server(path string, port int, origin string) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 
 		// only allow connection to specified origin
 		upgrader.CheckOrigin = func(r *http.Request) bool { 
-			clientOrigin := r.Header.Get(origin)
+			clientOrigin := r.Header.Get("origin")
 			return clientOrigin == origin
 		}
 	
@@ -47,13 +44,14 @@ func server(port int, origin string) {
 	}
 
 
-	// run the server
-	http.HandleFunc("/reload", handler)
-	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+	// run the server at the specified url and port
+	// must match the url:port in the javascript snippet
+	http.HandleFunc(path, handler)
+	http.ListenAndServe(fmt.Sprintf(":%d",port), nil)
 }
 
-func Reload(port int,origin string) {
-	fmt.Println("Reloading on port", port)
-	go server(port, origin)
+func Reload(url string, port int,origin string) {
+	fmt.Println("Reload",url,port,origin)
+	go server(url,port, origin)
 	
 }
