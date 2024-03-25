@@ -1,0 +1,31 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{{.PageTitle}}</title>
+    <script>
+      let active = false;
+      sock = new WebSocket("ws://localhost:8080/reload");
+      sock.onopen = function (event) {
+        console.log("connected");
+        active = true;
+      };
+
+      sock.onclose = function (event) {
+        console.log("disconnected");
+        // the timeout value needs to be long enough for the
+        // go app to reload before refreshing this page.
+        // tune it to what works on your system.
+        if (active) {
+          setTimeout(function () {
+            location.reload();
+            active = false;
+          }, 2000);
+        }
+      };
+    </script>
+  </head>
+  <body>
+    <h1>{{.PageTitle}}</h1>
+    fasdff adfsasf 123
+  </body>
+</html>
