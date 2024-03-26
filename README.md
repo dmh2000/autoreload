@@ -22,65 +22,38 @@ itself force a reload of the web page in the browser.
 
 2.  In the main web server code, import github.com/dmh2000/autoreload.
 
-3.  Add a call to autoreload.Start in your main web server. This creates a websocket endpoint that the reloader in the web pages connect. Call autoreload.Start before starting the web server. See example/main.go.
+3.  Add a call to autoreload.Start in your main web server. This creates a websocket endpoint that the reloader in the web pages connect. Call autoreload.Start before starting the web server. See example/main.go. Also add the autoreload.Handler to your http server mux. You can set the url to anything that works for your system.
 
 ```go
 // from autoreload package
 func Start(url string, port int,origin string)...
+
+func Handler(w http.ResponseWriter, r *http.Request)
 ```
 
 ```go
-  func main() {
-    const reloadPort = 8080                     // port that the reload server listens on
-    const reloadUrl  = "/reload"                // url that the reload server listens on
-    const origin     =  "http://localhost:8001" // used for origin check in WebSocket upgrade
-    const serverPort = ":8001"				          // local server port
-
-    autoreload.Start(reloadUrl,reloadPort, origin)
-
-    http.HandleFunc("/", Home)
-
-    fmt.Printf("Server Listening on port %s\n", serverPort)
-    err := http.ListenAndServe(serverPort, nil)
-    if err != nil {
-      panic(err)
-    }
-  }
+	const reloadPort = 8080                 // port that the reload websocket server listens on
+	const reloadUrl = "/reload"             // url that the reload websocket server listens on
+	const origin =  "http://localhost:8001" // used for origin check in websocket upgrade
+	// start the autoreload server which will spawn a goroutine that listens for websocket connections
+	autoreload.Start(reloadUrl,reloadPort, origin)
+	// add autoreload handler to the mux. url should match the snippet in the html file
+	http.HandleFunc("/reload/reloader.js", autoreload.Handler)
 ```
 
 4. Add a script reference to reloader.js into your web pages in the Head section. This script creates a simple WebSocket server that listens for a connection from a WebSocket client. See example/views/index.html. The purpose of this script is to open a WebSocket connection to the autoreload function in the web server
 
 ```html
-<script src="reloader.js"></script>
-```
-
-4. Alternative reloader
-
-```JavaScript
-import { WebSocketServer } from "ws";
-
-const wss = new WebSocketServer({ port: 8080 });
-
-wss.on("open", function connection(ws) {
-  console.log("open");
-});
-
-wss.on("close", function close() {
-  console.log("disconnected");
-});
-
-wss.on("error", function error() {
-  console.log("error");
-});
+<script src="/reload/reloader.js"></script>
 ```
 
 ## What Does This Do?
 
 **Startup**
 
-- In a terminal, start the Go web server using Air
+- Start the Go web server using Air
 
-  - Air is configured to restart the web server on code change.
+  - .air.toml is configured to restart the web server on code change.
   - When the web app first loads, it will enable the WebSocket script which will wait for a connection from the client.
 
 - Once the WebSocket endpoints are connected up, there are no messages sent back and forth. There is no extra load on the application. Both ends are passively sitting waiting for a disconnect.
@@ -98,13 +71,12 @@ Note: The setTimeout delay in the scripts makes the web page refresh a little sm
 
 ## A Simple Example
 
-Clone https://github.com/dmh2000/autoreload to a working directory
+Clone or Fork https://github.com/dmh2000/autoreload to a working directory
 
 The example code is in autoreload/example. The example contains:
 
 - main.go : web server that also starts autoreload
 - views\/\*.html : web pages
-- reload.html
 - .air.toml : cosmtrek/air configuration file
 
 ## Dependencies

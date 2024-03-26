@@ -33,6 +33,8 @@ func About(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// --------------------------------------------------------------------------------------------
+	// ADD THE FOLLOWING CODE TO ENABLE LIVE RELOADING
 	fmt.Println("Starting autoreload server")
 	const reloadPort = 8080                 // port that the reload websocket server listens on
 	const reloadUrl = "/reload"             // url that the reload websocket server listens on
@@ -41,6 +43,7 @@ func main() {
 	autoreload.Start(reloadUrl,reloadPort, origin)
 	// add autoreload handler to the mux. url should match the snippet in the html file
 	http.HandleFunc("/reload/reloader.js", autoreload.Handler)
+	// --------------------------------------------------------------------------------------------
 
 	// add the main application handlers
 	http.HandleFunc("/", Home)
