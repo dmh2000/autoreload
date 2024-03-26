@@ -9,6 +9,7 @@ hello-reload
 *.so
 *.dylib
 __debug*
+tmp
 
 # Test binary, built with `go test -c`
 *.test

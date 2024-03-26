@@ -1,4 +1,4 @@
-module github.com/dmh2000/reload
+module github.com/dmh2000/autoreload
 
 go 1.21.0
 

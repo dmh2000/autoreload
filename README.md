@@ -9,41 +9,52 @@ If you are coming from the React world of web app development, you probably use 
 In the Go world, you can get live reload of a web app using cosmtrek/air or one of a few other tools : https://techinscribed.com/5-ways-to-live-reloading-go-applications/
 
 **THERE IS ONE CATCH WITH GO**:
-In the React environment, when you change code, the server will restart, AND the changes show up immediately on the browser. This is possible because a React app has a bunch of JavaScript running in the app that handle it. Its baked into the React library that is part of the app.
+In the React environment, when you change code, the server will restart, **AND** the changes show up immediately on the browser. This is possible because a React app has a bunch of JavaScript running in the app that handle it. Its baked into the React library that is part of the app.
 
-On the other hand, the go tools such as Air will restart your server when source code changes, but they don't force the browser to refresh the current page. So as far as I know with any of the go approaches, you have to manually refresh the page or possibly have it refresh itself with a periodic timer (horrible?).
+On the other hand, the go tools such as Air will restart your server when source code changes, but they don't force the browser to refresh the current page. So as far as I know with any of the go approaches, you have to manually refresh the page (F5) or possibly have it refresh itself with a periodic timer (horrible?).
 
 There is a solution that seems to work for me. By adding a bit of code, you can have REAL live reload with page refresh on code change.
 
 ## Approach
 
-1. Setup and use cosmtrek/air to live reload the go web server in the conventional manner. https://github.com/cosmtrek/air
-2. Add a tiny piece of JavaScript into your web pages in the Head section. This script creates a simple WebSocket server that listens for a connection from a WebSocket client.
+1.Install [cosmtrek/air](https://github.com/cosmtrek/air) which will be used to run the go web server in the conventional manner. **air** will restart the web server when the source is changed. **air** does not
+itself force a reload of the web page in the browser.
 
-This script coould be minified in real usage. It would need to be added to any page that wanted this to work during development.
+2.  In the main web server code, import github.com/dmh2000/autoreload.
 
-```JavaScript
-    <script>
-      let active = false;
-      sock = new WebSocket("ws://localhost:8080/");
-      sock.onopen = function (event) {
-        console.log("connected");
-        active = true;
-      };
+3.  Add a call to autoreload.Start in your main web server. This creates a websocket endpoint that the reloader in the web pages connect. Call autoreload.Start before starting the web server. See example/main.go.
 
-      sock.onclose = function (event) {
-        console.log("disconnected");
-        if (active) {
-          setTimeout(function () {
-            location.reload();
-            active = false;
-          }, 2000);
-        }
-      };
-    </script>
+```go
+// from autoreload package
+func Start(url string, port int,origin string)...
 ```
 
-3. In a separate terminal run a small WebSocket client that connects to the server running in the web page. Run this client using Nodemon which is the Node.js tool like Air that restarts a the app when source code change.
+```go
+  func main() {
+    const reloadPort = 8080                     // port that the reload server listens on
+    const reloadUrl  = "/reload"                // url that the reload server listens on
+    const origin     =  "http://localhost:8001" // used for origin check in WebSocket upgrade
+    const serverPort = ":8001"				          // local server port
+
+    autoreload.Start(reloadUrl,reloadPort, origin)
+
+    http.HandleFunc("/", Home)
+
+    fmt.Printf("Server Listening on port %s\n", serverPort)
+    err := http.ListenAndServe(serverPort, nil)
+    if err != nil {
+      panic(err)
+    }
+  }
+```
+
+4. Add a script reference to reloader.js into your web pages in the Head section. This script creates a simple WebSocket server that listens for a connection from a WebSocket client. See example/views/index.html. The purpose of this script is to open a WebSocket connection to the autoreload function in the web server
+
+```html
+<script src="reloader.js"></script>
+```
+
+4. Alternative reloader
 
 ```JavaScript
 import { WebSocketServer } from "ws";
@@ -67,27 +78,18 @@ wss.on("error", function error() {
 
 **Startup**
 
-- Open two terminals
-
-- In terminal 1, start the Go web server using Air
+- In a terminal, start the Go web server using Air
 
   - Air is configured to restart the web server on code change.
   - When the web app first loads, it will enable the WebSocket script which will wait for a connection from the client.
-  - Once connected, the WebSocket script does nothing but wait for a disconnect.
-
-- In terminal 2, start the JavaScript client using Nodemon
-
-  - Nodemon is configured to watch the source code of the application
-  - It connects to the WebSocket script in the Web page.
 
 - Once the WebSocket endpoints are connected up, there are no messages sent back and forth. There is no extra load on the application. Both ends are passively sitting waiting for a disconnect.
 
 **Source Code Change**
 
-- Developer changes the code
-- In terminal 1, Air will restart the Go web server. It does not cause the web page to reload.
-- In terminal 2, Nodemon restarts the WebSocket client. This causes the WebSocket connection to close.
-- The WebSocket script in the web page detects a disconnect event.
+- Developer changes the code, either the go source or the page templates.
+- In a terminal, Air will restart the Go web server. This does not by itself cause a reload. It will however break the WebSocket connection with the web page.
+- In the browser, the WebSocket script in the web page detects a disconnect event.
   - After a slight delay, the script forces a web page reload and the changes show up.
 
 Once the web page reloads and the client restarts, they will reconnect and wait for the next code change.
@@ -96,11 +98,14 @@ Note: The setTimeout delay in the scripts makes the web page refresh a little sm
 
 ## A Simple Example
 
-Fork this repo to a working directory.
+Clone https://github.com/dmh2000/autoreload to a working directory
 
-The example code
+The example code is in autoreload/example. The example contains:
 
-https://github.com/dmh2000/go-live-reload
+- main.go : web server that also starts autoreload
+- views\/\*.html : web pages
+- reload.html
+- .air.toml : cosmtrek/air configuration file
 
 ## Dependencies
 
@@ -108,60 +113,22 @@ Install the following dependencies
 
 - golang
   - go install github.com/cosmtrek/air@latest
-- node.js
-  - https://nodejs.org
-  - download and install
-- nodemon
-  - https://nodemon.io/
-  - npm install -g nodemon
 
-## Setup
+## Web Pages
 
-From root of forked repo:
+- add the 'reloader.js' script reference into the head section of each webpage
+
+## Run the example
 
 ```bash
-go mod tidy
-cd ws
-npm install
-cd ..
-```
-
-## Startup
-
-Note : **cmd/main.go** must be run at the top level of the project, not in **cmd**. It needs to access the **views** directory to fetch the HTML template.
-
-Run each of these commands in separate terminals
-
-### Start the Golang web app using cosmtrek/air
-
-```bash
-# live reload of golang web app
-$ air
-```
-
-Open the browser to see the web page.
-
-### Start the websocket app using Nodemon
-
-Nodemon options:
-
-- --**ext** specifies what type of file extension to watch
-- --**watch** specifies a directory to watch (can be multiple)
-
-```bash
-# restart the local websocket server so web app will detect disconnect and reload
-$ cd ws
-$ nodemon --ext go,mjs,HTML --watch ../cmd --watch ../views  index.mjs
-
-# OR
-# the package.json has a start script that does the above
-npm start
+$cd example
+$go mod tidy
+$air .
 ```
 
 ## Test
 
-- Make a change to the app source code. Either in cmd/main.go or views/hello.HTML.
+- Make a change to the app source code. Either in example/main.go or example/views/{any page}
 - Save the change
-- On terminal 1, you should see that Air restarted the Go app
-- On terminal 2, you should see that Nodemon restarted the JavaScript app
+- On the terminal running 'air', you should see that Air restarted the Go app
 - On the browser, you should see the changes pop up after a second or two
